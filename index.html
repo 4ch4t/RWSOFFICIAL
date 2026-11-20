@@ -9,34 +9,63 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%23050506'/%3E%3Cpath d='M6 34 L18 16 L24 25 L31 12 L42 34 Z' fill='%23ff2b2b'/%3E%3Cpath d='M12 40 Q24 31 36 40' fill='none' stroke='%23ff2b2b' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
   html, body { margin: 0; height: 100%; background: #050506; overflow: hidden; }
-  #rws { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
-  .wait { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center;
-    color: #9a9aa5; font: 15px/1.7 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; }
-  .wait b { display: block; color: #f1f1f3; font-size: 18px; letter-spacing: 3px; }
-  .wait a { color: #ff2b2b; font-weight: 700; text-decoration: none; }
+  #rws { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: #050506; }
+  .wait { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; padding: 24px; text-align: center;
+    background: #050506; color: #9a9aa5; font: 15px/1.7 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; }
+  .wait b { display: block; color: #f1f1f3; font-size: 18px; letter-spacing: 3px; margin-bottom: 4px; }
+  .wait a { color: #ff2b2b; font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
+  .wait .off { display: none; }
+  .wait.offline .on { display: none; }
+  .wait.offline .off { display: block; }
+  .wait[hidden] { display: none; }
 </style>
 </head>
 <body>
-<!-- shown while the live site loads, and if it can't be reached -->
-<div class="wait"><div><b>RWS</b>Loading Ridge Weather Service…<br>
-  Taking too long? <a id="direct" href="https://rws-feeds.tailcddc44.ts.net:8443/live">Open the live site</a></div></div>
+<!-- shown while the live site loads, and instead of it when it can't be reached -->
+<div class="wait" id="wait"><div>
+  <b>RWS</b>
+  <div class="on">Loading Ridge Weather Service…<br>
+    Taking too long? <a class="direct" href="https://rws-feeds.tailcddc44.ts.net:8443/">Open the site directly</a></div>
+  <div class="off">The live site is offline right now. Please try again in a few minutes.<br>
+    <a class="direct" href="https://rws-feeds.tailcddc44.ts.net:8443/">Try the direct link</a><br>
+    Contact: <a href="mailto:rwsofficial@rwsweather.dpdns.org">rwsofficial@rwsweather.dpdns.org</a></div>
+</div></div>
 <iframe id="rws" title="Ridge Weather Service" allow="fullscreen; geolocation"></iframe>
 <noscript><div class="wait"><div><b>RWS</b>
-  <a href="https://rws-feeds.tailcddc44.ts.net:8443/live">Open Ridge Weather Service</a></div></div></noscript>
+  <a href="https://rws-feeds.tailcddc44.ts.net:8443/">Open Ridge Weather Service</a><br>
+  Contact: <a href="mailto:rwsofficial@rwsweather.dpdns.org">rwsofficial@rwsweather.dpdns.org</a></div></div></noscript>
 <script>
-  // The live site runs on Tailscale. To move it, change BASE (and the two links above).
+  // The live site runs on Tailscale. To move it, change BASE (and the links above).
+  // Upload this same file as index.html AND as 404.html: GitHub Pages serves 404.html for /radar, /live, ...,
+  // so direct links to every page work.
   (function () {
     var BASE = "https://rws-feeds.tailcddc44.ts.net:8443";
-    var PAGES = ["live", "radar", "forecast", "warnings"];
-    // always open /live, unless the address ends in one of the known pages (e.g. .../radar)
-    var last = location.pathname.split("/").filter(Boolean).pop() || "";
-    var page = PAGES.indexOf(last) >= 0 ? last : "live";
-    var url = BASE + "/" + page;
+    var ORIGIN = new URL(BASE).origin;
+    var PAGES = ["radar", "forecast", "warnings", "live"];           // "" = the homepage
+    var last = (location.pathname.split("/").filter(Boolean).pop() || "").replace(/\.html$/, "");
+    var page = PAGES.indexOf(last) >= 0 ? last : "";
+    var url = BASE + "/" + page + location.search + location.hash;
     var frame = document.getElementById("rws");
+    var wait = document.getElementById("wait");
+    var links = document.querySelectorAll(".direct");
+    for (var i = 0; i < links.length; i++) links[i].href = url;
+    if (location.pathname !== "/" + page) history.replaceState(null, "", "/" + page + location.search + location.hash);
+
+    var ready = false;
+    // The RWS site posts {rws: "page", page, title} on every page load. The address bar and the tab title follow
+    // it (replaceState only: the browser already keeps Back / Forward for clicks inside the frame).
+    window.addEventListener("message", function (e) {
+      if (e.origin !== ORIGIN || !e.data || e.data.rws !== "page") return;
+      ready = true;
+      wait.hidden = true;
+      var p = e.data.page === "home" ? "" : String(e.data.page || "");
+      if (PAGES.indexOf(p) < 0) p = "";
+      if (location.pathname !== "/" + p) history.replaceState(null, "", "/" + p);
+      if (e.data.title) document.title = e.data.title;
+    });
+    // no message from the site within 15 s: it is offline (an error page inside the frame can't tell us)
+    setTimeout(function () { if (!ready) wait.classList.add("offline"); }, 15000);
     frame.src = url;
-    document.getElementById("direct").href = url;
-    // hide the loading text once the site is there, so it never shows through
-    frame.addEventListener("load", function () { document.querySelector(".wait").style.display = "none"; });
   })();
 </script>
 </body>
