@@ -41,7 +41,7 @@
   (function () {
     var BASE = "https://rws-feeds.tailcddc44.ts.net:8443";
     var ORIGIN = new URL(BASE).origin;
-    var PAGES = ["radar", "forecast", "warnings", "live"];           // "" = the homepage
+    var PAGES = ["radar", "forecast", "warnings", "live", "about"];           // "" = the homepage
     var last = (location.pathname.split("/").filter(Boolean).pop() || "").replace(/\.html$/, "");
     var page = PAGES.indexOf(last) >= 0 ? last : "";
     var url = BASE + "/" + page + location.search + location.hash;
